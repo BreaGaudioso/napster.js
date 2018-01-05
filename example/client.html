@@ -41,7 +41,7 @@
 
       $(document).ready(function() {
         var currentTrack;
-        Rhapsody.init({ consumerKey: API_KEY });
+        Rhapsody.init({ consumerKey: API_KEY, isHTML5Compatible: true });
 
         Rhapsody.player.on('ready', function(e) {
           var params = getParameters();
@@ -229,6 +229,9 @@
       .playing .current-time,
       .paused .current-time {
         display: block;
+      }
+      #napster-streaming-player {
+        margin-bottom: 900px;
       }
     </style>
   </head>

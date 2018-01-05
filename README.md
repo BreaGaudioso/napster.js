@@ -1,8 +1,8 @@
 # Attention:
 
-This SDK has been deprecated in favor of the new and improved [napster.js](https://github.com/Napster/napster.js) SDK.
+This SDK has been deprecated in favor of the new and improved [napster.js](https://github.com/Napster/napster.js) SDK. This SDK is now for internal use only and should be merged into the public repo for any changes to be made public.
 
-Please update your projects.  
+Please update your projects.
 
 We will keep this repository active until May, 2017 to help with your transition.
 
@@ -23,7 +23,7 @@ Rhapsody.init({
 | Attribute      | Default        | Description   |
 | -------------- | -------------- | ------------- |
 | consumerKey    | undefined      | The application key |
-| version        | 'v2.1'           | API endpoint version. Please refer to [developer.napster.com](developer.napster.com) for available versions. |
+| version        | 'v2.2'           | API endpoint version. Please refer to [developer.napster.com](developer.napster.com) for available versions. |
 | catalog        | 'EN'           | The desired catalog locale |
 | player         | 'player-frame' | The html element id where the player iframe will be embedded |
 
