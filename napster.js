@@ -85,9 +85,10 @@
           return true;
         }
 
-        // Detect browser
-        // If IE, return false
-        // mobile, chrome, safari, return true
+        // TODO: Detect browser
+
+        // Logic should be written as follows. If in IE, return false
+        // If mobile, chrome, firefox, safari, return true
       }
 
       var id = options.player || 'player-frame';
@@ -103,7 +104,7 @@
           $("<video id='napster-streaming-player' class='video-js'></video>").appendTo($(document.body));
 
           $.ajax({
-            url: '/streaming-player.js',
+            url: '/streaming-player.js', // This will eventually be served from api.napster.com.
             dataType: 'script',
             async: true,
             success: function () {
@@ -122,7 +123,7 @@
                 .attr('name', id)
                 .attr('src', 'http://api.napster.com/v1.1/player/index.html?apikey=' + options.consumerKey)
                 .attr('frameborder', 'no')
-                .attr('style', 'display:none;')
+                // .attr('style', 'display:none;')
                 .appendTo($(document.body))
                 .load(function() {
                   that.player.win = f.get(0);
@@ -273,7 +274,6 @@
       pause: function() {
         if (isFlash()) {
           Napster.windows(this.win).post('pause');
-
           return this;
         } else {
           this.streamingPlayer.pause();
@@ -287,8 +287,9 @@
 
       next: function() {
         if (isFlash()) {
+          Napster.windows(this.win).post('playNext');
         } else {
-        // Napster.windows(this.win).post('playNext');
+
         }
       },
 
@@ -298,8 +299,8 @@
 
       previous: function() {
         if (isFlash()) {
+          Napster.windows(this.win).post('playPrevious');
         } else {
-        // Napster.windows(this.win).post('playPrevious');
         }
       },
 
@@ -309,9 +310,10 @@
 
       queue: function(o) {
         if (isFlash()) {
+          Napster.windows(this.win).post('queue', o);
+          return this;
         } else {
-        // Napster.windows(this.win).post('queue', o);
-        // return this;
+          // TODO this needs to be implemented in napster.js for the streaming player.
         }
       },
 
@@ -321,8 +323,9 @@
 
       clearQueue: function() {
         if (isFlash()) {
+          Napster.windows(this.win).post('clearQueue');
         } else {
-        // Napster.windows(this.win).post('clearQueue');
+          // TODO this needs to be implemented in napster.js for the streaming player.
         }
       },
 
@@ -333,8 +336,9 @@
 
       toggleShuffle: function() {
         if (isFlash()) {
+          Napster.windows(this.win).post('toggleShuffle');
         } else {
-        // Napster.windows(this.win).post('toggleShuffle');
+        // TODO this needs to be implemented in napster.js for the streaming player.
         }
       },
 
@@ -344,8 +348,10 @@
 
       toggleRepeat: function() {
         if (isFlash()) {
+          Napster.windows(this.win).post('toggleRepeat');
         } else {
-        // Napster.windows(this.win).post('toggleRepeat');
+           // TODO. This might be possible with underlying streaming-player code.
+           // If not, then this needs to be implemented in napster.js for the streaming player.
         }
       },
 
@@ -369,9 +375,9 @@
 
       setVolume: function(n) {
         if (isFlash()) {
-          this.streamingPlayer.setVolume(n);
-        } else {
           Napster.windows(this.win).post('setVolume', n);
+        } else {
+          this.streamingPlayer.setVolume(n);
         }
       },
 
@@ -506,7 +512,7 @@
     return (this.accessToken != null && this.refreshToken != null);
   });
 
-  Everyone listens to these events
+  //Everyone listens to these events
   Napster.player
     .on('playevent', function(e) {  })
     .on('playtimer', function(e) {  });
