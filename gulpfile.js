@@ -10,6 +10,6 @@ gulp.task('default', function() {
 gulp.task('build', function() {
   gulp.src(source)
       .pipe(gulp.dest('.'))
-      .pipe(uglify('rhapsody.min.js'))
+      .pipe(uglify('napster.min.js'))
       .pipe(gulp.dest('.'));
 });

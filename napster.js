@@ -1,9 +1,9 @@
-//  Copyright (c) 2016 Rhapsody International
+//  Copyright (c) 2017 Napster / Rhapsody International
 //  Code released under the MIT license.
-//  See https://github.com/Rhapsody/rhapsody.js#the-mit-license-mit for more detail.
-//  The first thing you need to do, after including Rhapsody.js in your app (but before using it), is initialize the Rhapsody object with your application key.
+//  See https://github.com/Napster/napster.js#the-mit-license-mit for more detail.
+//  The first thing you need to do, after including Napster.js in your app (but before using it), is initialize the Napster object with your application key.
 //
-//     Rhapsody.init({
+//     Napster.init({
 //       consumerKey: 'foo'
 //     });
 //
@@ -39,8 +39,11 @@
     };
   };
 
-  var ACCESS_TOKEN_KEY = 'rhapsody.member.accessToken',
-      REFRESH_TOKEN_KEY = 'rhapsody.member.refreshToken';
+  var ACCESS_TOKEN_KEY = 'napster.member.accessToken',
+      REFRESH_TOKEN_KEY = 'napster.member.refreshToken',
+      streamingPlayer,
+      player,
+      API_KEY;
 
   var Member = function(obj) {
     for (var k in obj) {
@@ -52,62 +55,103 @@
     this.member = member;
   };
 
-  var Rhapsody = {
+  function isFlash () {
+    return player === 'FLASH_PLAYER';
+  };
+
+  var Napster = {
 
     // ### Initialization Options
     // Set your developer key and application ID here.  You can also (optionally) specify which API and catalog versions you prefer.
     //
-    //     Rhapsody.init({
+    //     Napster.init({
     //       consumerKey: options.consumerKey,
     //       version: 'v1',
-    //       catalog: 'EN'
+    //       catalog: 'EN',
+    //       isHTML5Compatible: true
     //     });
 
     init: function(options) {
       this.api.consumerKey = options.consumerKey;
+      API_KEY = options.consumerKey;
       this.api.version = options.version || this.api.version;
       this.api.catalog = options.catalog || this.api.catalog;
+
+
+      function shouldLoadHTML5Engine() {
+        // Browser detection goes here. Override detection by setting the playback engine option.
+
+        if (options.isHTML5Compatible === true) {
+          return true;
+        }
+
+        // TODO: Detect browser
+
+        // Logic should be written as follows. If in IE, return false
+        // If mobile, chrome, firefox, safari, return true
+      }
 
       var id = options.player || 'player-frame';
 
       if (id && typeof id === 'string') {
         var that = this, d = $('#' + id);
 
-        if (d.length === 0) {
-          $(function() {
-            var f = $('<iframe></iframe>')
-              .attr('id', id)
-              .attr('name', id)
-              .attr('src', 'http://api.rhapsody.com/v1.1/player/index.html?apikey=' + options.consumerKey)
-              .attr('frameborder', 'no')
-              .attr('style', 'display:none;')
-              .appendTo($(document.body))
-              .load(function() {
-                that.player.win = f.get(0);
-              });
+        if (shouldLoadHTML5Engine()) {
+          //Load HTML5 playback engine
+
+          player = 'HTML5_PLAYER';
+
+          $("<video id='napster-streaming-player' class='video-js'></video>").appendTo($(document.body));
+
+          $.ajax({
+            url: '/streaming-player.js', // This will eventually be served from api.napster.com.
+            dataType: 'script',
+            async: true,
+            success: function () {
+              Napster.player.fire('ready');
+            }
           });
-        }
-        else if (d.get(0) instanceof HTMLIFrameElement) {
-          that.player.win = d.get(0);
-        }
-        else {
-          throw new Error('The element "' + id + '" is not an HTMLIFrameElement.')
+        } else {
+          //Fallback to flash
+
+          player = 'FLASH_PLAYER';
+
+          if (d.length === 0) {
+            $(function() {
+              var f = $('<iframe></iframe>')
+                .attr('id', id)
+                .attr('name', id)
+                .attr('src', 'http://api.napster.com/v1.1/player/index.html?apikey=' + options.consumerKey)
+                .attr('frameborder', 'no')
+                .attr('style', 'display:none;')
+                .appendTo($(document.body))
+                .load(function() {
+                  that.player.win = f.get(0);
+                });
+            });
+          }
+          else if (d.get(0) instanceof HTMLIFrameElement) {
+            that.player.win = d.get(0);
+          }
+          else {
+            throw new Error('The element "' + id + '" is not an HTMLIFrameElement.')
+          }
         }
       }
     },
 
     api: {
-      host: 'api.rhapsody.com',
+      host: 'api.napster.com',
       catalog: 'US',
-      version: 'v2.1',
+      version: 'v2.2',
       endpoint: function(secure) {
         return (secure ? 'https://' : 'http://') + [this.host, this.version].join('/');
       },
       headers: function(secure) {
         var h = {};
 
-        if (secure && Rhapsody.member.accessToken) {
-          h['Authorization'] = 'Bearer ' + Rhapsody.member.accessToken;
+        if (secure && Napster.member.accessToken) {
+          h['Authorization'] = 'Bearer ' + Napster.member.accessToken;
         }
 
         return h;
@@ -175,110 +219,166 @@
     },
 
     // ### Playback
-    // The Rhapsody object exposes a top-level ``player`` object that gives you just about everything you need to manage playback.
+    // The Napster object exposes a top-level ``player`` object that gives you just about everything you need to manage playback.
 
     player: {
       frameReady: false,
       ready: false,
+      streamingPlayer: undefined,
 
       auth: function() {
-        if (Rhapsody.api.consumerKey && Rhapsody.member.accessToken) {
-          Rhapsody.windows(this.win).post('auth', { consumerKey: Rhapsody.api.consumerKey, accessToken: Rhapsody.member.accessToken  });
+        if (isFlash()) {
+          if (Napster.api.consumerKey && Napster.member.accessToken) {
+            Napster.windows(this.win).post('auth', { consumerKey: Napster.api.consumerKey, accessToken: Napster.member.accessToken  });
+          }
+        } else {
+          this.streamingPlayer = new StreamingPlayer({
+            id: 'napster-streaming-player',
+            apikey: API_KEY,
+            token: Napster.member.accessToken,
+            enableLogging: true,
+            bitrate: 192,
+            downgrade: true,
+            currentUser: {},
+            env: 'production'
+          });
         }
       },
 
       // #### Playing a Track
       // You can play a track ID or Track object.  (Track objects are detailed below.)
       //
-      //     Rhapsody.player.play('Tra.5156528');
+      //     Napster.player.play('Tra.5156528');
       //
       // or
       //
       //     Track.find('Tra.5156528', function(t) {
-      //       Rhapsody.player.play(t);
+      //       Napster.player.play(t);
       //     });
 
       play: function(o) {
-        Rhapsody.previewer.pause();
-        Rhapsody.windows(this.win).post('play', o);
-        return this;
+        if (isFlash()) {
+          Napster.previewer.pause();
+          Napster.windows(this.win).post('play', o);
+          return this;
+        } else {
+          this.streamingPlayer.play(o, 'UNKNOWN');
+          window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayStarted', playing: true } }, "*")
+        }
       },
 
       // #### Pausing
       //
-      //     Rhapsody.player.pause();
+      //     Napster.player.pause();
 
       pause: function() {
-        Rhapsody.windows(this.win).post('pause');
-        return this;
+        if (isFlash()) {
+          Napster.windows(this.win).post('pause');
+          return this;
+        } else {
+          this.streamingPlayer.pause();
+          window.parent.postMessage({ type: 'playevent', data: {  code: 'Paused', paused: true } }, "*")
+        }
       },
 
       // #### Skipping to the Next Track
       //
-      //     Rhapsody.player.next();
+      //     Napster.player.next();
 
       next: function() {
-        Rhapsody.windows(this.win).post('playNext');
+        if (isFlash()) {
+          Napster.windows(this.win).post('playNext');
+        } else {
+
+        }
       },
 
       // #### Skipping to the Previous Track
       //
-      //     Rhapsody.player.previous();
+      //     Napster.player.previous();
 
       previous: function() {
-        Rhapsody.windows(this.win).post('playPrevious');
+        if (isFlash()) {
+          Napster.windows(this.win).post('playPrevious');
+        } else {
+        }
       },
 
       // #### Queueing a Track
       //
-      //     Rhapsody.player.queue('Tra.5156528');
+      //     Napster.player.queue('Tra.5156528');
 
       queue: function(o) {
-        Rhapsody.windows(this.win).post('queue', o);
-        return this;
+        if (isFlash()) {
+          Napster.windows(this.win).post('queue', o);
+          return this;
+        } else {
+          // TODO this needs to be implemented in napster.js for the streaming player.
+        }
       },
 
       // #### Clear the Queue
       //
-      //     Rhapsody.player.clearQueue();
+      //     Napster.player.clearQueue();
 
       clearQueue: function() {
-        Rhapsody.windows(this.win).post('clearQueue');
+        if (isFlash()) {
+          Napster.windows(this.win).post('clearQueue');
+        } else {
+          // TODO this needs to be implemented in napster.js for the streaming player.
+        }
       },
 
       // #### Shuffle
       //
-      //     Rhapsody.player.toggleShuffle();
+      //     Napster.player.toggleShuffle();
       //
 
       toggleShuffle: function() {
-        Rhapsody.windows(this.win).post('toggleShuffle');
+        if (isFlash()) {
+          Napster.windows(this.win).post('toggleShuffle');
+        } else {
+        // TODO this needs to be implemented in napster.js for the streaming player.
+        }
       },
 
       // #### Repeat
       //
-      //     Rhapsody.player.toggleRepeat();
+      //     Napster.player.toggleRepeat();
 
       toggleRepeat: function() {
-        Rhapsody.windows(this.win).post('toggleRepeat');
+        if (isFlash()) {
+          Napster.windows(this.win).post('toggleRepeat');
+        } else {
+           // TODO. This might be possible with underlying streaming-player code.
+           // If not, then this needs to be implemented in napster.js for the streaming player.
+        }
       },
 
       // #### Seek
       // For example, to seek to 0:10 in a given track:
       //
-      //     Rhapsody.player.seek(10);
+      //     Napster.player.seek(10);
 
       seek: function(t) {
-        Rhapsody.windows(this.win).post('seek', t);
+        if (isFlash()) {
+          Napster.windows(this.win).post('seek', t);
+        } else {
+          this.streamingPlayer.seek(t);
+        }
       },
 
       // #### Set volume
       // Volume should be in range [0,1]
       //
-      //     Rhapsody.player.setVolume(0.8);
+      //     Napster.player.setVolume(0.8);
 
       setVolume: function(n) {
-        Rhapsody.windows(this.win).post('setVolume', n);
+        if (isFlash()) {
+          Napster.windows(this.win).post('setVolume', n);
+        } else {
+          this.streamingPlayer.setVolume(n);
+        }
       },
 
       // ### Playback Events
@@ -290,15 +390,15 @@
       //
       // Listening for player events is simple:
       //
-      //     Rhapsody.player.on('playevent', function(e) {
+      //     Napster.player.on('playevent', function(e) {
       //       console.log(e.data);
       //     });
       //
-      //     Rhapsody.player.on('playtimer', function(e) {
+      //     Napster.player.on('playtimer', function(e) {
       //       console.log(e.data);
       //     });
       //
-      //     Rhapsody.player.on('error', function(e) {
+      //     Napster.player.on('error', function(e) {
       //       console.log(e.data);
       //     });
 
@@ -341,6 +441,9 @@
         });
 
         return this;
+      },
+      fire: function(eventName) {
+        window.parent.postMessage({ type: eventName }, "*");
       }
     },
     previewer: {
@@ -358,7 +461,7 @@
             throw new Error('An iframe was not found at that reference.');
             return;
           }
-          win.contentWindow.postMessage({ method: method, args: Rhapsody.util.jsonClean(args || {}) }, "*");
+          win.contentWindow.postMessage({ method: method, args: Napster.util.jsonClean(args || {}) }, "*");
         }
       }
     },
@@ -387,8 +490,7 @@
     if (creds && creds.accessToken && creds.refreshToken) {
       this.accessToken = exports.localStorage[ACCESS_TOKEN_KEY] = creds.accessToken;
       this.refreshToken = exports.localStorage[REFRESH_TOKEN_KEY] = creds.refreshToken;
-
-      Rhapsody.player.auth();
+      Napster.player.auth(creds.accessToken);
     }
   });
 
@@ -410,12 +512,12 @@
     return (this.accessToken != null && this.refreshToken != null);
   });
 
-  // Everyone listens to these events
-  Rhapsody.player
+  //Everyone listens to these events
+  Napster.player
     .on('playevent', function(e) {  })
     .on('playtimer', function(e) {  });
 
-  exports.Rhapsody = Rhapsody;
+  exports.Napster = Napster;
   exports.Member = Member;
 
 })(window, jQuery, JSON);
