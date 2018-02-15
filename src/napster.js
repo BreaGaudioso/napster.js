@@ -60,7 +60,6 @@
   };
 
   var Napster = {
-
     // ### Initialization Options
     // Set your developer key and application ID here.  You can also (optionally) specify which API and catalog versions you prefer.
     //
@@ -76,7 +75,6 @@
       API_KEY = options.consumerKey;
       this.api.version = options.version || this.api.version;
       this.api.catalog = options.catalog || this.api.catalog;
-
 
       function shouldLoadHTML5Engine() {
         // Browser detection goes here. Override detection by setting the playback engine option.
@@ -98,9 +96,9 @@
 
         if (shouldLoadHTML5Engine()) {
           //Load HTML5 playback engine
-
           player = 'HTML5_PLAYER';
 
+          that.player = new Html5Player();
           $("<video id='napster-streaming-player' class='video-js'></video>").appendTo($(document.body));
 
           $.ajax({
@@ -113,9 +111,8 @@
           });
         } else {
           //Fallback to flash
-
           player = 'FLASH_PLAYER';
-
+          that.player = new FlashPlayer();
           if (d.length === 0) {
             $(function() {
               var f = $('<iframe></iframe>')
@@ -138,9 +135,10 @@
           }
         }
       }
-    },
+    }
+  }
 
-    api: {
+    Napster.api = {
       host: 'api.napster.com',
       catalog: 'US',
       version: 'v2.2',
@@ -207,303 +205,25 @@
         data._method = 'DELETE';
         this.post.call(this, secure, path, data, cb);
       }
-    },
+    };
 
-    member: new function() {
+    Napster.member =  new function() {
       var m = new Member({
         accessToken: exports.localStorage[ACCESS_TOKEN_KEY],
         refreshToken: exports.localStorage[REFRESH_TOKEN_KEY]
       });
 
       return m;
-    },
-
-    // ### Playback
-    // The Napster object exposes a top-level ``player`` object that gives you just about everything you need to manage playback.
-
-    player: {
-      frameReady: false,
-      ready: false,
-      streamingPlayer: undefined,
-      queued: [],
-      played: [],
-      repeat: false,
-      shuffled: false,
-      auth: function() {
-        if (isFlash()) {
-          if (Napster.api.consumerKey && Napster.member.accessToken) {
-            Napster.windows(this.win).post('auth', { consumerKey: Napster.api.consumerKey, accessToken: Napster.member.accessToken  });
-          }
-        } else {
-          this.streamingPlayer = new StreamingPlayer({
-            id: 'napster-streaming-player',
-            apikey: API_KEY,
-            token: Napster.member.accessToken,
-            enableLogging: true,
-            bitrate: 192,
-            downgrade: true,
-            currentUser: {},
-            env: 'production'
-          });
-          var that = this;
-
-          this.streamingPlayer.callbackHandler('trackEnded', function(){
-            if (that.repeat === false){
-              that.next();
-            } else {
-              that.streamingPlayer.play(that.currentTrack, 'UNKNOWN');
-            }
-          });
-        }
-      },
-      // #### Playing a Track
-      // You can play a track ID or Track object.  (Track objects are detailed below.)
-      //
-      //     Napster.player.play('Tra.5156528');
-      // or
-      //     Track.find('Tra.5156528', function(t) {
-      //       Napster.player.play(t);
-      //     });
-      play: function(o) {
-        if (isFlash()) {
-          Napster.previewer.pause();
-          Napster.windows(this.win).post('play', o);
-          return this;
-        } else {
-          this.streamingPlayer.play(o, 'UNKNOWN');
-          this.played.push(o)
-          window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayStarted', playing: true } }, "*")
-        }
-      },
-
-      // #### Pausing
-      //     Napster.player.pause();
-      pause: function() {
-        if (isFlash()) {
-          Napster.windows(this.win).post('pause');
-          return this;
-        } else {
-          this.streamingPlayer.pause();
-          window.parent.postMessage({ type: 'playevent', data: { id: this.currentTrack, code: 'Paused', playing: false } }, "*")
-        }
-      },
-
-      // #### Resume play from a pause
-      resume: function() {
-        if (isFlash()) {
-          //TODO: figure out how flash does this/ if it is needed, etc.
-        } else {
-          this.streamingPlayer.resume(this.currentTrack, 'UNKNOWN');
-          window.parent.postMessage({ type: 'playevent', data: { id: this.currentTrack, code: 'PlayStarted', playing: true } }, "*")
-        }
-      },
-
-      // #### Skipping to the Next Track
-      //     Napster.player.next();
-
-      next: function() {
-        if (isFlash()) {
-          Napster.windows(this.win).post('playNext');
-        } else {
-          var queue = this.shuffled === false ? this.queued : this.shuffledQueued;
-          if (queue.length >= 1) {
-            // only do something if there are songs left in the queue
-            this.shuffled === false ? this.play(this.queued.pop()) : this.play(this.shuffledQueued.pop());
-          }
-        }
-      },
-
-      // #### Skipping to the Previous Track
-      //     Napster.player.previous();
-
-      previous: function() {
-        if (isFlash()) {
-          Napster.windows(this.win).post('playPrevious');
-        } else {
-          if (this.played.length === 1) {
-            // when there are no songs left, the previous button will just restart the current track, and not do queue manipulation.
-            this.streamingPlayer.play(this.played[0], 'UNKNOWN');
-            window.parent.postMessage({ type: 'playevent', data: { id: this.played[0], code: 'PlayStarted', playing: true } }, "*");
-          } else {
-            this.shuffled === false ? this.queued.push(this.played.pop()) : this.shuffledQueued.push(this.played.pop());
-            this.play(this.played.pop());
-          }
-        }
-      },
-
-      // #### Queueing a Track
-      //     Napster.player.queue('Tra.5156528');
-
-      queue: function(o) {
-        if (isFlash()) {
-          Napster.windows(this.win).post('queue', o);
-          return this;
-        } else {
-          this.queued.push(o);
-        }
-      },
-
-
-      // #### Clear the Queue
-      //  Napster.player.clearQueue();
-      // NOTE: this will clear both your played and queued tracks
-
-      clearQueue: function() {
-        if (isFlash()) {
-          Napster.windows(this.win).post('clearQueue');
-        } else {
-          this.queued = [];
-          this.shuffledQueued = [];
-          this.played = [];
-        }
-      },
-
-      // #### Shuffle
-      //     Napster.player.toggleShuffle()
-      toggleShuffle: function() {
-        if (isFlash()) {
-          Napster.windows(this.win).post('toggleShuffle');
-        } else {
-          this.shuffled = this.shuffled === true ? false : true;
-          this.shuffledQueued = this.queued.map(function (a) {
-            return [Math.random(), a];
-          }).sort(function (a, b) {
-            return a[0] - b[0];
-          }).map(function (a) {
-            return a[1];
-          });
-        }
-      },
-
-      // #### Repeat
-      //     Napster.player.toggleRepeat();
-
-      toggleRepeat: function() {
-        if (isFlash()) {
-          Napster.windows(this.win).post('toggleRepeat');
-        } else {
-          this.repeat = this.repeat === false ? true : false;
-        }
-      },
-
-      // #### showQueue
-      // To see what songs are queued to play next:
-      //   Napster.player.showQueue();
-      showQueue: function() {
-        if (isFlash()) {
-          // this funcitonality isnt in flash
-        } else {
-          if (this.shuffled === true){
-            return this.shuffledQueued;
-          } else {
-            return this.queued;
-          }
-        }
-      },
-
-      // #### showPlayed
-      // To see what songs have been played:
-      //     Napster.player.showPlayed();
-      showPlayed: function() {
-        if (isFlash()) {
-          // this funcitonality isnt in flash
-        } else {
-        return this.played;
-        }
-      },
-
-      // #### Seek
-      // For example, to seek to 0:10 in a given track:
-      //     Napster.player.seek(10);
-
-      seek: function(t) {
-        if (isFlash()) {
-          Napster.windows(this.win).post('seek', t);
-        } else {
-          this.streamingPlayer.seek(this.currentTrack, t);
-        }
-      },
-
-      // #### Set volume
-      // Volume should be in range [0,1]
-      //
-      //     Napster.player.setVolume(0.8);
-
-      setVolume: function(n) {
-        if (isFlash()) {
-          Napster.windows(this.win).post('setVolume', n);
-        } else {
-          this.streamingPlayer.setVolume(n);
-        }
-      },
-
-      // ### Playback Events
-      // There are a number of interesting playback-related events you can listen for:
-      //
-      //   * playevent: Starts, pauses, completes, etc.
-      //   * playtimer: Current time, total time, waveform data
-      //   * error: Bad things
-      //
-      // Listening for player events is simple:
-      //
-      //     Napster.player.on('playevent', function(e) {
-      //       console.log(e.data);
-      //     });
-      //
-      //
-      //     Napster.player.on('error', function(e) {
-      //       console.log(e.data);
-      //     });
-
-      on: function(eventName, callback) {
-        var p = this;
-
-        window.addEventListener('message', function(m) {
-          if (m.data.type === 'playerframeready') {
-            p.frameReady = true;
-          }
-          else if (m.data.type === 'ready') {
-            p.ready = true;
-
-          }
-          else if (m.data.type === 'playsessionexpired') {
-            p.paused = false;
-            p.playing = false;
-          }
-
-          if (p.frameReady && p.ready && !p.authed) {
-            p.authed = true;
-            p.auth();
-          }
-          if (m.data.type === eventName) {
-            if (m.data.data && m.data.data.id) {
-              m.data.data.id = m.data.data.id.replace('tra', 'Tra');
-              var c = m.data.data.code,
-                  playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused' && c !== 'BufferEmpty' && c !== 'NetworkDropped' && c !== 'PlayInterrupted' && c !== 'IdleTimeout')),
-                  paused = (c === 'Paused' || c === 'NetworkDropped' || c === 'PlayInterrupted' || c === 'IdleTimeout');
-              p.playing = m.data.data.playing = playing;
-              p.paused = m.data.data.paused = paused;
-              p.currentTrack = (p.playing || p.paused) ? m.data.data.id : null;
-            }
-            callback.call(this, m.data);
-          }
-        });
-
-        return this;
-      },
-      fire: function(eventName) {
-        window.parent.postMessage({ type: eventName }, "*");
-      }
-    },
-    previewer: {
+    };
+    Napster.previewer = {
       play: function() {
         return this;
       },
       pause: function() {
         return this;
       }
-    },
-    windows: function(win) {
+    };
+    Napster.windows = function(win) {
       return {
         post: function(method, args) {
           if (!win) {
@@ -513,11 +233,11 @@
           win.contentWindow.postMessage({ method: method, args: Napster.util.jsonClean(args || {}) }, "*");
         }
       }
-    },
-    on: function(eventName, callback) {
+    };
+    Napster.on = function(eventName, callback) {
       window.addEventListener(eventName, callback);
-    },
-    util: {
+    };
+    Napster.util = {
       secondsToTime: function(s) {
         if (!isNaN(s)) {
           var minutes = Math.floor(s / 60);
@@ -532,8 +252,8 @@
           return v;
         }));
       }
-    }
-  };
+    };
+  // };
 
   method(Member.prototype, 'set', function(creds) {
     if (creds && creds.accessToken && creds.refreshToken) {
@@ -561,10 +281,254 @@
     return (this.accessToken != null && this.refreshToken != null);
   });
 
-  //Everyone listens to these events
-  Napster.player
-    .on('playevent', function(e) {  })
-    .on('playtimer', function(e) {  })
+
+  function FlashPlayer () {
+    this.frameReady = false;
+    this.ready = false;
+  };
+
+  FlashPlayer.prototype.auth = function auth() {
+    if (Napster.api.consumerKey && Napster.member.accessToken) {
+      Napster.windows(this.win).post('auth', { consumerKey: Napster.api.consumerKey, accessToken: Napster.member.accessToken  });
+    }
+  };
+
+  FlashPlayer.prototype.play = function play(o){
+    Napster.previewer.pause();
+    Napster.windows(this.win).post('play', o);
+    return this;
+  };
+
+  FlashPlayer.prototype.pause = function pause() {
+    Napster.windows(this.win).post('pause');
+    return this;
+  };
+
+  FlashPlayer.prototype.resume = function resume() {
+    //TODO: figure out how flash does this/ if it is needed, etc.
+  };
+  FlashPlayer.prototype.next = function next() {
+    Napster.windows(this.win).post('playNext');
+  };
+
+  FlashPlayer.prototype.previous = function previous() {
+    Napster.windows(this.win).post('playPrevious');
+  };
+
+  FlashPlayer.prototype.queue = function queue() {
+    Napster.windows(this.win).post('queue', o);
+    return this;
+  };
+
+  FlashPlayer.prototype.clearQueue = function clearQueue() {
+    Napster.windows(this.win).post('clearQueue');
+  };
+
+  FlashPlayer.prototype.toggleShuffle = function toggleShuffle() {
+    Napster.windows(this.win).post('toggleShuffle');
+  };
+
+  FlashPlayer.prototype.toggleClass = function toggleClass() {
+    Napster.windows(this.win).post('toggleRepeat');
+  };
+
+  FlashPlayer.prototype.seek = function seek() {
+    Napster.windows(this.win).post('seek', t);
+  };
+
+  FlashPlayer.prototype.setVolume = function setVolume() {
+    Napster.windows(this.win).post('setVolume', n);
+  };
+
+  FlashPlayer.prototype.fire = function fire(eventName){
+    window.parent.postMessage({ type: eventName }, "*");
+  }
+
+  FlashPlayer.prototype.on = function on(eventName, callback){
+    var p = this;
+
+    window.addEventListener('message', function(m) {
+      if (m.data.type === 'playerframeready') {
+        p.frameReady = true;
+      }
+      else if (m.data.type === 'ready') {
+        p.ready = true;
+
+      }
+      else if (m.data.type === 'playsessionexpired') {
+        p.paused = false;
+        p.playing = false;
+      }
+
+      if (p.frameReady && p.ready && !p.authed) {
+        p.authed = true;
+        p.auth();
+      }
+      if (m.data.type === eventName) {
+        if (m.data.data && m.data.data.id) {
+          m.data.data.id = m.data.data.id.replace('tra', 'Tra');
+          var c = m.data.data.code,
+              playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused' && c !== 'BufferEmpty' && c !== 'NetworkDropped' && c !== 'PlayInterrupted' && c !== 'IdleTimeout')),
+              paused = (c === 'Paused' || c === 'NetworkDropped' || c === 'PlayInterrupted' || c === 'IdleTimeout');
+          p.playing = m.data.data.playing = playing;
+          p.paused = m.data.data.paused = paused;
+          p.currentTrack = (p.playing || p.paused) ? m.data.data.id : null;
+        }
+        callback.call(this, m.data);
+      }
+    });
+    return this;
+  };
+
+  function Html5Player () {
+    this.streamingPlayer = undefined;
+    this.queued = [];
+    this.played = [];
+    this.repeat = false;
+    this.shuffled = false;
+    this.frameReady = false;
+    this.ready = false;
+    return this;
+  };
+
+  Html5Player.prototype.auth = function auth() {
+    // TODO: i feel like this shouldnt be in the auth function???
+    var that = this;
+    this.streamingPlayer = new StreamingPlayer({
+      id: 'napster-streaming-player',
+      apikey: API_KEY,
+      token: Napster.member.accessToken,
+      enableLogging: true,
+      bitrate: 192,
+      downgrade: true,
+      currentUser: {},
+      env: 'production'
+    });
+    this.streamingPlayer.callbackHandler('trackEnded', function() {
+      // TODO: i feel like this shouldnt be in the auth function???
+      if (that.repeat === false){
+        that.next();
+      } else {
+        that.streamingPlayer.play(that.currentTrack, 'UNKNOWN');
+      }
+    });
+  };
+
+  Html5Player.prototype.play = function play(o){
+    this.streamingPlayer.play(o, 'UNKNOWN');
+    this.played.push(o)
+    window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayStarted', playing: true } }, "*")
+  };
+  Html5Player.prototype.pause = function pause() {
+    this.streamingPlayer.pause();
+    window.parent.postMessage({ type: 'playevent', data: { id: this.currentTrack, code: 'Paused', playing: false } }, "*")
+  };
+
+  Html5Player.prototype.resume = function resume() {
+    this.streamingPlayer.resume(this.currentTrack, 'UNKNOWN');
+    window.parent.postMessage({ type: 'playevent', data: { id: this.currentTrack, code: 'PlayStarted', playing: true } }, "*")
+  };
+
+  Html5Player.prototype.next = function next() {
+    var queue = this.shuffled === false ? this.queued : this.shuffledQueued;
+    if (queue.length >= 1) {
+      // only do something if there are songs left in the queue
+      this.shuffled === false ? this.play(this.queued.pop()) : this.play(this.shuffledQueued.pop());
+    }
+  };
+  Html5Player.prototype.previous = function previous() {
+      if (this.played.length === 1) {
+        // when there are no songs left, the previous button will just restart the current track, and not do queue manipulation.
+        this.streamingPlayer.play(this.played[0], 'UNKNOWN');
+        window.parent.postMessage({ type: 'playevent', data: { id: this.played[0], code: 'PlayStarted', playing: true } }, "*");
+      } else {
+        this.shuffled === false ? this.queued.push(this.played.pop()) : this.shuffledQueued.push(this.played.pop());
+        this.play(this.played.pop());
+      }
+    };
+  Html5Player.prototype.queue = function queue() {
+    this.queued.push(o);
+  };
+  Html5Player.prototype.clearQueue = function clearQueue() {
+    this.queued = [];
+    this.shuffledQueued = [];
+    this.played = [];
+  };
+  Html5Player.prototype.toggleShuffle = function toggleShuffle() {
+    this.shuffled = this.shuffled === true ? false : true;
+    this.shuffledQueued = this.queued.map(function (a) {
+      return [Math.random(), a];
+    }).sort(function (a, b) {
+      return a[0] - b[0];
+    }).map(function (a) {
+      return a[1];
+    });
+  };
+  Html5Player.prototype.toggleRepeat = function toggleRepeat() {
+    this.repeat = this.repeat === false ? true : false;
+  };
+  Html5Player.prototype.showQueue = function showQueue() {
+    if (this.shuffled === true){
+      return this.shuffledQueued;
+    } else {
+      return this.queued;
+    }
+  };
+  Html5Player.prototype.showPlayed = function showPlayed() {
+    return this.played;
+  };
+  Html5Player.prototype.seek = function seek(t){
+    this.streamingPlayer.seek(this.currentTrack, t);
+  };
+  Html5Player.prototype.setVolume = function setVolume(n){
+    this.streamingPlayer.setVolume(n);
+  };
+
+  Html5Player.prototype.fire = function fire(eventName){
+    window.parent.postMessage({ type: eventName }, "*");
+  }
+
+  Html5Player.prototype.on = function on(eventName, callback){
+    var p = this;
+
+    window.addEventListener('message', function(m) {
+      if (m.data.type === 'playerframeready') {
+        p.frameReady = true;
+      }
+      else if (m.data.type === 'ready') {
+        p.ready = true;
+
+      }
+      else if (m.data.type === 'playsessionexpired') {
+        p.paused = false;
+        p.playing = false;
+      }
+
+      if (p.frameReady && p.ready && !p.authed) {
+        p.authed = true;
+        p.auth();
+      }
+      if (m.data.type === eventName) {
+        if (m.data.data && m.data.data.id) {
+          m.data.data.id = m.data.data.id.replace('tra', 'Tra');
+          var c = m.data.data.code,
+              playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused' && c !== 'BufferEmpty' && c !== 'NetworkDropped' && c !== 'PlayInterrupted' && c !== 'IdleTimeout')),
+              paused = (c === 'Paused' || c === 'NetworkDropped' || c === 'PlayInterrupted' || c === 'IdleTimeout');
+          p.playing = m.data.data.playing = playing;
+          p.paused = m.data.data.paused = paused;
+          p.currentTrack = (p.playing || p.paused) ? m.data.data.id : null;
+        }
+        callback.call(this, m.data);
+      }
+    });
+    return this;
+  };
+
+
+  // Everyone listens to these events
+  // Napster.player
+  //   .on('playevent', function(e) {  })
+  //   .on('playtimer', function(e) {  })
 
   exports.Napster = Napster;
   exports.Member = Member;
