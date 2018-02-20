@@ -406,6 +406,7 @@
     });
     this.streamingPlayer.callbackHandler('trackEnded', function() {
       // TODO: i feel like this shouldnt be in the auth function???
+      window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayComplete', playing: false } }, "*")
       if (that.repeat === false){
         that.next();
       } else {
@@ -512,8 +513,8 @@
         if (m.data.data && m.data.data.id) {
           m.data.data.id = m.data.data.id.replace('tra', 'Tra');
           var c = m.data.data.code,
-              playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused' && c !== 'BufferEmpty' && c !== 'NetworkDropped' && c !== 'PlayInterrupted' && c !== 'IdleTimeout')),
-              paused = (c === 'Paused' || c === 'NetworkDropped' || c === 'PlayInterrupted' || c === 'IdleTimeout');
+              playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused')),
+              paused = (c === 'Paused');
           p.playing = m.data.data.playing = playing;
           p.paused = m.data.data.paused = paused;
           p.currentTrack = (p.playing || p.paused) ? m.data.data.id : null;
