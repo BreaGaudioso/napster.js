@@ -385,7 +385,6 @@
     this.queued = [];
     this.played = [];
     this.repeat = false;
-    this.shuffled = false;
     this.frameReady = false;
     this.ready = false;
     return this;
@@ -406,6 +405,7 @@
     });
     this.streamingPlayer.callbackHandler('trackEnded', function() {
       // TODO: i feel like this shouldnt be in the auth function???
+      window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayComplete', playing: false } }, "*")
       if (that.repeat === false){
         that.next();
       } else {
@@ -430,10 +430,9 @@
   };
 
   Html5Player.prototype.next = function next() {
-    var queue = this.shuffled === false ? this.queued : this.shuffledQueued;
-    if (queue.length >= 1) {
+    if (this.queued.length >= 1) {
       // only do something if there are songs left in the queue
-      this.shuffled === false ? this.play(this.queued.pop()) : this.play(this.shuffledQueued.pop());
+      this.play(this.queued.pop());
     }
   };
   Html5Player.prototype.previous = function previous() {
@@ -442,7 +441,7 @@
         this.streamingPlayer.play(this.played[0], 'UNKNOWN');
         window.parent.postMessage({ type: 'playevent', data: { id: this.played[0], code: 'PlayStarted', playing: true } }, "*");
       } else {
-        this.shuffled === false ? this.queued.push(this.played.pop()) : this.shuffledQueued.push(this.played.pop());
+        this.queued.push(this.played.pop());
         this.play(this.played.pop());
       }
     };
@@ -451,12 +450,10 @@
   };
   Html5Player.prototype.clearQueue = function clearQueue() {
     this.queued = [];
-    this.shuffledQueued = [];
     this.played = [];
   };
   Html5Player.prototype.toggleShuffle = function toggleShuffle() {
-    this.shuffled = this.shuffled === true ? false : true;
-    this.shuffledQueued = this.queued.map(function (a) {
+    this.queued = this.queued.map(function (a) {
       return [Math.random(), a];
     }).sort(function (a, b) {
       return a[0] - b[0];
@@ -468,11 +465,7 @@
     this.repeat = this.repeat === false ? true : false;
   };
   Html5Player.prototype.showQueue = function showQueue() {
-    if (this.shuffled === true){
-      return this.shuffledQueued;
-    } else {
-      return this.queued;
-    }
+    return this.queued;
   };
   Html5Player.prototype.showPlayed = function showPlayed() {
     return this.played;
@@ -512,8 +505,8 @@
         if (m.data.data && m.data.data.id) {
           m.data.data.id = m.data.data.id.replace('tra', 'Tra');
           var c = m.data.data.code,
-              playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused' && c !== 'BufferEmpty' && c !== 'NetworkDropped' && c !== 'PlayInterrupted' && c !== 'IdleTimeout')),
-              paused = (c === 'Paused' || c === 'NetworkDropped' || c === 'PlayInterrupted' || c === 'IdleTimeout');
+              playing = (c === 'PlayStarted' || (c !== 'PlayComplete' && c !== 'Paused')),
+              paused = (c === 'Paused');
           p.playing = m.data.data.playing = playing;
           p.paused = m.data.data.paused = paused;
           p.currentTrack = (p.playing || p.paused) ? m.data.data.id : null;
