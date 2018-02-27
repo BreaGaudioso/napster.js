@@ -3,7 +3,7 @@
   <head>
     <title>napster.js Sample App</title>
     <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
-    <script src="napster.js" type="text/javascript"></script>
+    <script src="napster.min.js" type="text/javascript"></script>
     <script type="text/javascript">
       var API_KEY = 'API_KEY';
 
@@ -42,8 +42,11 @@
       $(document).ready(function() {
         var currentTrack;
         Napster.init({ consumerKey: API_KEY, isHTML5Compatible: true });
-        console.log('initialized');
+
         Napster.player.on('ready', function(e) {
+          // Uncomment to know when The Napster Player is ready
+          // console.log('initialized');
+
           var params = getParameters();
           if (params.accessToken) {
             Napster.member.set(params);
