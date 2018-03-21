@@ -9,7 +9,6 @@ function Html5Player () {
 };
 
 Html5Player.prototype.auth = function auth() {
-  // TODO: i feel like this shouldnt be in the auth function???
   var that = this;
   this.streamingPlayer = new StreamingPlayer({
     id: 'napster-streaming-player',
@@ -22,8 +21,7 @@ Html5Player.prototype.auth = function auth() {
     env: 'production'
   });
   this.streamingPlayer.callbackHandler('trackEnded', function() {
-    // TODO: i feel like this shouldnt be in the auth function???
-    window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayComplete', playing: false } }, "*")
+    window.parent.postMessage({ type: 'playevent', data: { id: that.currentTrack, code: 'PlayComplete', playing: false } }, "*")
     if (that.repeat === false){
       that.next();
     } else {
