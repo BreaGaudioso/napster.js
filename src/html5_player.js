@@ -9,9 +9,8 @@ function Html5Player () {
 };
 
 Html5Player.prototype.auth = function auth() {
-  // TODO: i feel like this shouldnt be in the auth function???
   var that = this;
-  this.streamingPlayer = new StreamingPlayer({
+  this.streamingPlayer = new DrmStreamingPlayer({
     id: 'napster-streaming-player',
     apikey: API_KEY,
     token: Napster.member.accessToken,
@@ -22,8 +21,7 @@ Html5Player.prototype.auth = function auth() {
     env: 'production'
   });
   this.streamingPlayer.callbackHandler('trackEnded', function() {
-    // TODO: i feel like this shouldnt be in the auth function???
-    window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayComplete', playing: false } }, "*")
+    window.parent.postMessage({ type: 'playevent', data: { id: that.currentTrack, code: 'PlayComplete', playing: false } }, "*")
     if (that.repeat === false){
       that.next();
     } else {
@@ -33,7 +31,7 @@ Html5Player.prototype.auth = function auth() {
 };
 
 Html5Player.prototype.play = function play(o){
-  this.streamingPlayer.play(o, 'UNKNOWN');
+  this.streamingPlayer.play(o, { context: 'UNKNOWN'});
   this.played.push(o)
   window.parent.postMessage({ type: 'playevent', data: { id: o, code: 'PlayStarted', playing: true } }, "*")
 };
@@ -43,7 +41,7 @@ Html5Player.prototype.pause = function pause() {
 };
 
 Html5Player.prototype.resume = function resume() {
-  this.streamingPlayer.resume(this.currentTrack, 'UNKNOWN');
+  this.streamingPlayer.resume(this.currentTrack, { context: 'UNKNOWN'});
   window.parent.postMessage({ type: 'playevent', data: { id: this.currentTrack, code: 'PlayStarted', playing: true } }, "*")
 };
 
@@ -56,7 +54,7 @@ Html5Player.prototype.next = function next() {
 Html5Player.prototype.previous = function previous() {
     if (this.played.length === 1) {
       // when there are no songs left, the previous button will just restart the current track, and not do queue manipulation.
-      this.streamingPlayer.play(this.played[0], 'UNKNOWN');
+      this.streamingPlayer.play(this.played[0], { context: 'UNKNOWN'});
       window.parent.postMessage({ type: 'playevent', data: { id: this.played[0], code: 'PlayStarted', playing: true } }, "*");
     } else {
       this.queued.push(this.played.pop());
