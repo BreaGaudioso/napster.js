@@ -54,6 +54,7 @@
 
           Napster.api.get(false, '/tracks/top', function(data) {
             var tracks = data.tracks;
+            Napster.player.clearQueue();
             tracks.forEach(function(track, i) {
               var $t = $('<div class="track" data-track="' + track.id + '">' +
                            '<div class="album-art"></div>' +
@@ -81,6 +82,7 @@
               });
 
               $t.appendTo('#tracks');
+              Napster.player.queue(track.id.charAt(0).toUpperCase() + track.id.slice(1));
 
               Napster.api.get(false, '/albums/' + track.albumId + '/images', function(data) {
                 var images = data.images;

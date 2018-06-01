@@ -61,7 +61,7 @@ Html5Player.prototype.previous = function previous() {
       this.play(this.played.pop());
     }
   };
-Html5Player.prototype.queue = function queue() {
+Html5Player.prototype.queue = function queue(o) {
   this.queued.push(o);
 };
 Html5Player.prototype.clearQueue = function clearQueue() {
