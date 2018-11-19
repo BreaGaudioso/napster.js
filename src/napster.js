@@ -105,7 +105,7 @@
           $("<video id='napster-streaming-player' class='video-js'></video>").appendTo($(document.body));
 
           $.ajax({
-            url: 'http://origin-napi-gateway-int.internal.rhapsody.com/v2/streaming-player.js', // This will eventually be served from api.napster.com.
+            url: 'https://api.napster.com/v2/streaming-player.js',
             dataType: 'script',
             async: true,
             success: function () {
